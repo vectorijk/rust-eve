@@ -1,3 +1,6 @@
-
 /target
 **/*.rs.bk
+.DS_Store
+.idea/
+Cargo.lock
+rust-eve.iml
