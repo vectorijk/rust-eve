@@ -1,0 +1,6 @@
+[package]
+name = "rust-eve"
+version = "0.1.0"
+authors = ["Kai Jiang <jiangkai@gmail.com>"]
+
+[dependencies]
