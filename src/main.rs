@@ -1,15 +1,17 @@
-#![feature(plugin)]
+#![feature(plugin, custom_derive)]
 #![plugin(rocket_codegen)]
 
-extern crate rocket_contrib;
 extern crate rocket;
-#[macro_use] extern crate serde_derive;
+extern crate rocket_contrib;
+#[macro_use]
+extern crate serde_derive;
 
-use rocket::Request;
+use rocket::outcome::Outcome::*;
+use rocket::request::{self, FromRequest, Request};
 use rocket::response::Redirect;
 use rocket_contrib::Template;
 use std::collections::HashMap;
-//use std::fmt;
+use std::fmt;
 
 #[derive(Copy, Clone)]
 pub enum Tokens {
@@ -20,21 +22,12 @@ pub enum Tokens {
 }
 
 impl Tokens {
-//    fn id_str(&self) -> &'static str {
-//        match *self {
-//            Hubs::Jita    => "60003760",
-//            Hubs::Amarr   => "60008494",
-//            Hubs::Dodixie => "60011866",
-//            Hubs::Rens    => "60004588",
-//            Hubs::Hek     => "60005686",
-//        }
-//    }
     fn name(&self) -> &'static str {
         match *self {
-            Tokens::ClientID    => "6721922e87274b38ae0cd015bc67a0c1",
-            Tokens::SecretKey   => "QAJDzfaVbrXOzgXzrJXzgMpdkmAGstHav7CMBA57",
+            Tokens::ClientID => "6721922e87274b38ae0cd015bc67a0c1",
+            Tokens::SecretKey => "QAJDzfaVbrXOzgXzrJXzgMpdkmAGstHav7CMBA57",
             Tokens::CallbackURL => "http://localhost:8000/callback",
-            Tokens::Scope       => "esi-alliances.read_contacts.v1 \
+            Tokens::Scope => "esi-alliances.read_contacts.v1 \
                     esi-assets.read_assets.v1 \
                     esi-assets.read_corporation_assets.v1 \
                     esi-bookmarks.read_character_bookmarks.v1 \
@@ -99,7 +92,7 @@ impl Tokens {
 #[derive(Serialize)]
 struct TemplateContext {
     name: String,
-    items: Vec<String>
+    items: Vec<String>,
 }
 
 #[get("/")]
@@ -112,9 +105,9 @@ fn login() -> Redirect {
     Redirect::to(format!("https://login.eveonline.com/oauth/authorize?\
     response_type=token&redirect_uri={}\
     &client_id={}&scope={}",
-    Tokens::CallbackURL.name(),
-    Tokens::ClientID.name(),
-    Tokens::Scope.name()
+                         Tokens::CallbackURL.name(),
+                         Tokens::ClientID.name(),
+                         Tokens::Scope.name()
     ).as_ref())
 }
 
@@ -123,19 +116,46 @@ fn callback() -> Template {
     let mut context = HashMap::new();
     context.insert("test", "test");
     #[allow(unused_variables)]
-    Template::render("callback", context)
+        Template::render("callback", context)
 }
 
-#[get("/view")]
-fn view() -> &'static str {
-    "view output"
+
+#[derive(Debug)]
+struct HeaderCount(usize);
+
+impl fmt::Display for HeaderCount {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<'a, 'r> FromRequest<'a, 'r> for HeaderCount {
+    type Error = ();
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<Self, ()> {
+        println!("request :{} ", request.get_param_str(0).unwrap_or("".into()));
+        Success(HeaderCount(request.headers().len()))
+    }
+}
+
+#[derive(FromForm)]
+struct Para {
+    access_token: String,
+    token_type: String,
+    expires_in: Option<u8>,
+}
+
+#[get("/view?<para>")]
+fn view(para: Para) -> String {
+    format!("Hello, {} year old named {}!", para.access_token, para.token_type)
+
+//    format!("Your request contained {} headers!", header_count)
 }
 
 #[get("/hello/<name>")]
 fn get(name: String) -> Template {
     let context = TemplateContext {
         name: name,
-        items: vec!["One", "Two", "Three"].iter().map(|s| s.to_string()).collect()
+        items: vec!["One", "Two", "Three"].iter().map(|s| s.to_string()).collect(),
     };
 
     Template::render("index", &context)
@@ -145,14 +165,14 @@ fn get(name: String) -> Template {
 #[derive(Serialize)]
 struct TemplateContext1 {
     path: String,
-    items: Vec<String>
+    items: Vec<String>,
 }
 
 #[get("/status")]
 fn status() -> Template {
     let context = TemplateContext1 {
         path: "Status".to_string(),
-        items: vec!["One", "Two", "Three"].iter().map(|s| s.to_string()).collect()
+        items: vec!["One", "Two", "Three"].iter().map(|s| s.to_string()).collect(),
     };
     Template::render("status", &context)
 }

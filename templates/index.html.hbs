@@ -7,6 +7,11 @@
   <body>
     <h1>Hi {{name}}</h1>
     <h3>Here are your items:</h3>
+    <text>
+        This will fetch all of your character, corporation and alliance data from ESI that your character has access to view.
+
+        Click the "knife me" button, sign in with SSO, then you will be given a unique token (not the same as the SSO access token) which you can use to get the results when they're ready. You can then share this token with whoever you like.
+    </text>
     <ul>
       {{#each items}}
       <li>{{this}}</li>
