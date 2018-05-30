@@ -5,6 +5,8 @@ extern crate rocket;
 extern crate rocket_contrib;
 #[macro_use]
 extern crate serde_derive;
+extern crate hyper_native_tls;
+extern crate hyper;
 
 use rocket::outcome::Outcome::*;
 use rocket::request::{self, FromRequest, Request};
@@ -12,6 +14,13 @@ use rocket::response::Redirect;
 use rocket_contrib::Template;
 use std::collections::HashMap;
 use std::fmt;
+use hyper::net::HttpsConnector;
+use hyper::header::Headers;
+use hyper::header::Authorization;
+use hyper::{Client, Url};
+use hyper::client::Response;
+use hyper_native_tls::NativeTlsClient;
+use std::io::Read;
 
 #[derive(Copy, Clone)]
 pub enum Tokens {
@@ -146,9 +155,26 @@ struct Para {
 
 #[get("/view?<para>")]
 fn view(para: Para) -> String {
-    format!("Hello, {} year old named {}!", para.access_token, para.token_type)
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    let client = Client::with_connector(connector);
 
-//    format!("Your request contained {} headers!", header_count)
+    let root_url = "https://esi.evetech.net/verify";
+//    let endpoint = Url::parse_with_params(&root_url, &[("types", Self::form_item_url(items, &mut item_count))]).unwrap();
+    let urll = Url::parse(root_url).unwrap();
+
+    let mut header = Headers::new();
+    header.set(Authorization(format!("Bearer {}", para.access_token).to_owned()));
+
+    // send the GET request
+    let mut res = client.get(urll).headers(header).send().unwrap();
+
+    println!("res: {}", res.status);
+
+    format!("Hello, {} year old named {}!", para.access_token, para.token_type);
+    let mut body = String::new();
+    res.read_to_string(&mut body).unwrap();
+    format!("text {}", body)
 }
 
 #[get("/hello/<name>")]

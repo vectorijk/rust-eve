@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Kai Jiang <jiangkai@gmail.com>"]
 
 [dependencies]
+hyper = "0.10.10"
+hyper-native-tls = "0.2.2"
 rocket = "0.3.11"
 rocket_codegen = "0.3.11"
 serde = "1.0"
