@@ -3,11 +3,16 @@
 
 extern crate rocket;
 extern crate rocket_contrib;
-#[macro_use]
-extern crate serde_derive;
 extern crate hyper_native_tls;
 extern crate hyper;
 
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
+extern crate serde_json;
+extern crate ascii;
+
+use std::borrow::Borrow;
 use rocket::outcome::Outcome::*;
 use rocket::request::{self, FromRequest, Request};
 use rocket::response::Redirect;
@@ -21,6 +26,12 @@ use hyper::{Client, Url};
 use hyper::client::Response;
 use hyper_native_tls::NativeTlsClient;
 use std::io::Read;
+use serde_json::Value;
+
+use std::io;
+use std::path::{Path, PathBuf};
+
+use rocket::response::NamedFile;
 
 #[derive(Copy, Clone)]
 pub enum Tokens {
@@ -104,11 +115,6 @@ struct TemplateContext {
     items: Vec<String>,
 }
 
-#[get("/")]
-fn index() -> Redirect {
-    Redirect::to("/hello/Unknown")
-}
-
 #[get("/login")]
 fn login() -> Redirect {
     Redirect::to(format!("https://login.eveonline.com/oauth/authorize?\
@@ -153,38 +159,65 @@ struct Para {
     expires_in: Option<u8>,
 }
 
-#[get("/view?<para>")]
-fn view(para: Para) -> String {
+fn get_character_id(access_token: String) -> String {
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
 
-    let root_url = "https://esi.evetech.net/verify";
+    let baseURL = String::from("https://esi.evetech.net");
+
+    let mut verifyURL = baseURL;
+    verifyURL = verifyURL +"/verify";
 //    let endpoint = Url::parse_with_params(&root_url, &[("types", Self::form_item_url(items, &mut item_count))]).unwrap();
-    let urll = Url::parse(root_url).unwrap();
+    let urll = Url::parse(verifyURL.as_ref()).unwrap();
 
     let mut header = Headers::new();
-    header.set(Authorization(format!("Bearer {}", para.access_token).to_owned()));
+    header.set(Authorization(format!("Bearer {}", access_token).to_owned()));
 
     // send the GET request
     let mut res = client.get(urll).headers(header).send().unwrap();
 
     println!("res: {}", res.status);
 
-    format!("Hello, {} year old named {}!", para.access_token, para.token_type);
     let mut body = String::new();
     res.read_to_string(&mut body).unwrap();
-    format!("text {}", body)
+
+    let text: Value = serde_json::from_str(body.as_str()).unwrap();
+    println!("id: {}", text["CharacterID"]);
+
+    format!("{}", text["CharacterID"])
 }
 
-#[get("/hello/<name>")]
-fn get(name: String) -> Template {
-    let context = TemplateContext {
-        name: name,
-        items: vec!["One", "Two", "Three"].iter().map(|s| s.to_string()).collect(),
-    };
+#[derive(Serialize, Deserialize)]
+struct ResultTemplateContext {
+    contents: String,
+}
 
-    Template::render("index", &context)
+#[get("/view?<para>")]
+fn view(para: Para) -> Template {
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    let client = Client::with_connector(connector);
+
+    let characterID = get_character_id(para.access_token.clone());
+
+    let baseURL = String::from("https://esi.evetech.net");
+    let hook = String::from("skills/");
+    let mut portraitURL = format!("/latest/characters/{}/{}?datasource=tranquility&token={}"
+    ,characterID, hook, para.access_token);
+
+    portraitURL = baseURL + portraitURL.as_str();
+
+    let purl = Url::parse(portraitURL.as_ref()).unwrap();
+
+    let mut res = client.get(purl).send().unwrap();
+
+    let mut body1 = String::new();
+    res.read_to_string(&mut body1).unwrap();
+
+    let mut map = std::collections::HashMap::new();
+    map.insert("contents", body1);
+    Template::render("result", &map)
 }
 
 
@@ -210,9 +243,19 @@ fn not_found(req: &Request) -> Template {
     Template::render("error/404", &map)
 }
 
+#[get("/<file..>")]
+fn files(file: PathBuf) -> Option<NamedFile> {
+    NamedFile::open(Path::new("templates/").join(file)).ok()
+}
+
+#[get("/")]
+fn index() -> io::Result<NamedFile> {
+    NamedFile::open("templates/index.html")
+}
+
 fn rocket() -> rocket::Rocket {
     rocket::ignite()
-        .mount("/", routes![index, get, status, login, view, callback])
+        .mount("/", routes![index, status, login, view, callback, files])
         .attach(Template::fairing())
         .catch(errors![not_found])
 }

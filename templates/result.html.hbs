@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Handlebars Demo</title>
+    <script src="https://code.jquery.com/jquery-3.1.0.slim.min.js"></script>
+    <script src="jquery.json-browse.js"></script>
+    <link href="jquery.json-browse.css" type="text/css" rel="stylesheet">
+    <style type="text/css">
+        textarea#json-input {
+            width: 100%;
+            height: 200px;
+        }
+
+        .container {
+            margin-top: 150px;
+        }
+
+        pre#json-renderer {
+            border: 1px solid #aaa;
+            padding: 0.5em 1.5em;
+            background-color: #fafafa;
+        }
+    </style>
+    <script>
+        var input = "{{contents}}" ;
+        var t = input.replace(/&quot;/g, '"');
+        var content = eval('(' +t+')');
+        var options = {
+            collapsed: false,
+            withQuotes: true,
+        };
+    </script>
+</head>
+<body>
+<pre id="json-renderer" class="json-body"></pre>
+<script type="text/javascript">$('#json-renderer').jsonBrowse(content, options);</script>
+</body>
+</html>
