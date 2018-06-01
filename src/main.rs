@@ -32,6 +32,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use rocket::response::NamedFile;
+use std::vec::Vec;
 
 #[derive(Copy, Clone)]
 pub enum Tokens {
@@ -193,20 +194,32 @@ struct ResultTemplateContext {
     contents: String,
 }
 
+#[derive(FromForm)]
+struct ViewPara {
+    base: String,
+    characterID: String,
+    hook: String,
+    token: String,
+}
+
 #[get("/view?<para>")]
-fn view(para: Para) -> Template {
+fn view(para: ViewPara) -> Template {
+    println!("{}/{}/{}/{}",
+            para.base, para.characterID, para.hook, para.token);
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
 
-    let characterID = get_character_id(para.access_token.clone());
+//    let characterID = get_character_id(para.access_token.clone());
 
     let baseURL = String::from("https://esi.evetech.net");
-    let hook = String::from("skills/");
-    let mut portraitURL = format!("/latest/characters/{}/{}?datasource=tranquility&token={}"
-    ,characterID, hook, para.access_token);
-
+//    let hook = String::from("skills/");
+    let mut portraitURL = format!("/dev/{}/{}/{}?datasource=tranquility&token={}",
+                                  para.base, para.characterID, para.hook, para.token);
+//    println!("test {}", portraitURL);
     portraitURL = baseURL + portraitURL.as_str();
+
+//    println!("test {}", portraitURL);
 
     let purl = Url::parse(portraitURL.as_ref()).unwrap();
 
@@ -220,6 +233,53 @@ fn view(para: Para) -> Template {
     Template::render("result", &map)
 }
 
+#[derive(Serialize)]
+struct Dis {
+    display: String,
+    url: String,
+}
+
+#[get("/links?<para>")]
+fn links(para: Para) -> Template {
+    let characterID = get_character_id(para.access_token.clone());
+
+//    let baseURL = String::from("https://esi.evetech.net");
+    let hooks: Vec<&str> = vec!["",
+                                "skills",
+                                "agents_research", "assets",
+                                "calendar", "blueprints",
+                                "roles", "stats",
+                                "contacts", "contracts",
+                                "mining", "industry/jobs",
+                                "mail", "orders", "orders/history"];
+//    let mut portraitURL: String = format!("/characters/{}/{}"
+//                                  ,characterID, hook);
+
+    let mut links: Vec<Dis> = Vec::new();
+
+    for hook in hooks.iter() {
+        let tmp = Dis {
+            url: format!("/view?base=characters&characterID={}&hook={}&token={}" ,
+                         characterID, hook.to_string(), para.access_token),
+            display: format!("/characters/{}/{}" ,
+                             characterID, hook.to_string())
+        };
+        links.push(tmp );
+    }
+
+    let mut map =
+        std::collections::HashMap::new();
+
+    map.insert("items", links);
+    Template::render("links", &map)
+}
+
+
+
+#[derive(Serialize)]
+struct LinksTemplateContext {
+    items: Vec<String>
+}
 
 #[derive(Serialize)]
 struct TemplateContext1 {
@@ -231,14 +291,19 @@ struct TemplateContext1 {
 fn status() -> Template {
     let context = TemplateContext1 {
         path: "Status".to_string(),
-        items: vec!["One", "Two", "Three"].iter().map(|s| s.to_string()).collect(),
+        items: vec!["One", "Two", "Three"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
     };
     Template::render("status", &context)
 }
 
 #[error(404)]
 fn not_found(req: &Request) -> Template {
-    let mut map = std::collections::HashMap::new();
+    let mut map =
+        std::collections::HashMap::new();
+
     map.insert("path", req.uri().as_str());
     Template::render("error/404", &map)
 }
@@ -255,7 +320,11 @@ fn index() -> io::Result<NamedFile> {
 
 fn rocket() -> rocket::Rocket {
     rocket::ignite()
-        .mount("/", routes![index, status, login, view, callback, files])
+        .mount("/",
+               routes![index, status, login, view,
+                callback, links])
+        .mount("/file",
+               routes![files])
         .attach(Template::fairing())
         .catch(errors![not_found])
 }
