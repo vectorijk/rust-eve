@@ -14,13 +14,17 @@ this project can be also feasible extended to a Rust API client library.
 ### Building
 
 build on rust nightly version
+
 `rustup default nightly`
+
 `rustup override set nightly-2018-05-15`
+
 `cargo run --package rust-eve --bin rust-eve`
 
 ### Testing
 
 unit tests are in `src/tests.rs`
+
 run `cargo test`
 
 ### Documentation

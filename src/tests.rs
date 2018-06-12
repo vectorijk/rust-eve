@@ -3,10 +3,10 @@ use std::io::Read;
 
 use super::rocket;
 use super::rocket_contrib;
+use super::rocket_contrib::Template;
 use rocket::http::Method::*;
 use rocket::http::Status;
 use rocket::local::{Client, LocalResponse};
-use super::rocket_contrib::Template;
 
 fn test_query_file<T>(path: &str, file: T, status: Status)
 where
