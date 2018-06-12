@@ -1,5 +1,7 @@
 # Rust EVEonline Character Sniffer
 
+Copyright © 2018 Kai Jiang
+
 
 ### Intro
 
@@ -15,10 +17,16 @@ this project can be also feasible extended to a Rust API client library.
 
 ### Testing
 
+unit test is in `test.rs`
 
 ### Documentation
 
 
+
 ### License
 
-MIT License
+This program is licensed under the "MIT License". Please see the file LICENSE in the source distribution of this software for license terms.
+
+### Contact
+
+email: jiangkai@gmail.com
