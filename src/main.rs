@@ -9,8 +9,11 @@ extern crate rocket_contrib;
 #[macro_use]
 extern crate serde_derive;
 //#[macro_use]
-extern crate serde_json;
 extern crate ascii;
+extern crate serde_json;
+
+#[cfg(test)]
+mod tests;
 
 use hyper::header::Authorization;
 use hyper::header::Headers;
@@ -40,6 +43,7 @@ pub enum Tokens {
     Scope,
 }
 
+/// Access Token Structure
 impl Tokens {
     fn name(&self) -> &'static str {
         match *self {
@@ -110,7 +114,7 @@ impl Tokens {
     }
 }
 
-
+/// eveonline login page.
 #[get("/login")]
 fn login() -> Redirect {
     Redirect::to(
@@ -125,6 +129,7 @@ fn login() -> Redirect {
     )
 }
 
+/// callback page for redirect page
 #[get("/callback")]
 fn callback() -> Template {
     let mut context = HashMap::new();
@@ -160,7 +165,8 @@ struct Para {
     expires_in: Option<u8>,
 }
 
-fn get_character_id(access_token: String) -> String {
+/// send request for getting access token from ESI.
+pub fn get_character_id(access_token: String) -> String {
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
@@ -193,6 +199,7 @@ struct ResultTemplateContext {
     contents: String,
 }
 
+/// structure for `/view` to accept parameters
 #[derive(FromForm)]
 struct ViewPara {
     base: String,
@@ -201,6 +208,7 @@ struct ViewPara {
     token: String,
 }
 
+/// display json data from fetch links.
 #[get("/view?<para>")]
 fn view(para: ViewPara) -> Template {
     println!(
@@ -242,6 +250,7 @@ struct Dis {
     url: String,
 }
 
+/// display all links for each attributes.
 #[get("/links?<para>")]
 fn links(para: Para) -> Template {
     let character_id = get_character_id(para.access_token.clone());
@@ -320,6 +329,7 @@ fn status() -> Template {
     Template::render("status", &context)
 }
 
+/// 404 and any error redirect page.
 #[error(404)]
 fn not_found(req: &Request) -> Template {
     let mut map = std::collections::HashMap::new();
@@ -329,10 +339,12 @@ fn not_found(req: &Request) -> Template {
 }
 
 #[get("/<file..>")]
-fn files(file: PathBuf) -> Option<NamedFile> {
+/// static file access in `templates` directory.
+pub fn files(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("templates/").join(file)).ok()
 }
 
+/// entry point for `index.html` page.
 #[get("/")]
 fn index() -> io::Result<NamedFile> {
     NamedFile::open("templates/index.html")
