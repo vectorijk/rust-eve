@@ -8,11 +8,10 @@ extern crate rocket_contrib;
 
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
+//#[macro_use]
 extern crate serde_json;
 extern crate ascii;
 
-use hyper::client::Response;
 use hyper::header::Authorization;
 use hyper::header::Headers;
 use hyper::net::HttpsConnector;
@@ -23,7 +22,6 @@ use rocket::request::{self, FromRequest, Request};
 use rocket::response::Redirect;
 use rocket_contrib::Template;
 use serde_json::Value;
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::Read;
@@ -112,11 +110,6 @@ impl Tokens {
     }
 }
 
-#[derive(Serialize)]
-struct TemplateContext {
-    name: String,
-    items: Vec<String>,
-}
 
 #[get("/login")]
 fn login() -> Redirect {
@@ -172,11 +165,11 @@ fn get_character_id(access_token: String) -> String {
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
 
-    let baseURL = String::from("https://esi.evetech.net");
+    let base_url = String::from("https://esi.evetech.net");
 
-    let mut verifyURL = baseURL;
-    verifyURL = verifyURL + "/verify";
-    let urll = Url::parse(verifyURL.as_ref()).unwrap();
+    let mut verify_url = base_url;
+    verify_url = verify_url + "/verify";
+    let urll = Url::parse(verify_url.as_ref()).unwrap();
 
     let mut header = Headers::new();
     header.set(Authorization(format!("Bearer {}", access_token).to_owned()));
@@ -203,7 +196,7 @@ struct ResultTemplateContext {
 #[derive(FromForm)]
 struct ViewPara {
     base: String,
-    characterID: String,
+    character_id: String,
     hook: String,
     token: String,
 }
@@ -212,7 +205,7 @@ struct ViewPara {
 fn view(para: ViewPara) -> Template {
     println!(
         "{}/{}/{}/{}",
-        para.base, para.characterID, para.hook, para.token
+        para.base, para.character_id, para.hook, para.token
     );
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
@@ -220,18 +213,18 @@ fn view(para: ViewPara) -> Template {
 
     //    let characterID = get_character_id(para.access_token.clone());
 
-    let baseURL = String::from("https://esi.evetech.net");
+    let base_url = String::from("https://esi.evetech.net");
     //    let hook = String::from("skills/");
-    let mut portraitURL = format!(
-        "/dev/{}/{}/{}?datasource=tranquility&token={}",
-        para.base, para.characterID, para.hook, para.token
+    let mut portrait_url = format!(
+        "/latest/{}/{}/{}?datasource=tranquility&token={}",
+        para.base, para.character_id, para.hook, para.token
     );
-    //    println!("test {}", portraitURL);
-    portraitURL = baseURL + portraitURL.as_str();
+    //    println!("test {}", portrait_url);
+    portrait_url = base_url + portrait_url.as_str();
 
-    //    println!("test {}", portraitURL);
+    //    println!("test {}", portrait_url);
 
-    let purl = Url::parse(portraitURL.as_ref()).unwrap();
+    let purl = Url::parse(portrait_url.as_ref()).unwrap();
 
     let mut res = client.get(purl).send().unwrap();
 
@@ -251,7 +244,7 @@ struct Dis {
 
 #[get("/links?<para>")]
 fn links(para: Para) -> Template {
-    let characterID = get_character_id(para.access_token.clone());
+    let character_id = get_character_id(para.access_token.clone());
 
     //    let baseURL = String::from("https://esi.evetech.net");
     let hooks: Vec<&str> = vec![
@@ -279,23 +272,21 @@ fn links(para: Para) -> Template {
         "fw/stats",
         "fleet",
         "corporationhistory",
-        "clone",
+        "clones",
         "attributes",
     ];
-    //    let mut portraitURL: String = format!("/characters/{}/{}"
-    //                                  ,characterID, hook);
 
     let mut links: Vec<Dis> = Vec::new();
 
     for hook in hooks.iter() {
         let tmp = Dis {
             url: format!(
-                "/view?base=characters&characterID={}&hook={}&token={}",
-                characterID,
+                "/view?base=characters&character_id={}&hook={}&token={}",
+                character_id,
                 hook.to_string(),
                 para.access_token
             ),
-            display: format!("/characters/{}/{}", characterID, hook.to_string()),
+            display: format!("/characters/{}/{}", character_id, hook.to_string()),
         };
         links.push(tmp);
     }
@@ -349,7 +340,7 @@ fn index() -> io::Result<NamedFile> {
 
 fn rocket() -> rocket::Rocket {
     rocket::ignite()
-        .mount("/", routes![index, status, login, view, callback, links])
+        .mount("/", routes![index, login, view, callback, links])
         .mount("/file", routes![files])
         .attach(Template::fairing())
         .catch(errors![not_found])
